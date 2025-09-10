@@ -82,7 +82,7 @@ const Navbar: React.FC = () => {
                   Login
                 </Link>
                 <Link 
-                  to="/signup" 
+                  to="/login" 
                   className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors font-medium"
                 >
                   Sign Up
@@ -153,7 +153,7 @@ const Navbar: React.FC = () => {
                     Login
                   </Link>
                   <Link 
-                    to="/signup" 
+                    to="/login" 
                     className="text-emerald-600 hover:text-emerald-700 transition-colors font-medium"
                     onClick={() => setIsMenuOpen(false)}
                   >

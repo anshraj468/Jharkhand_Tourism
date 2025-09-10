@@ -8,7 +8,6 @@ import MainLayout from './components/MainLayout';
 // Pages
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
 import TouristDashboard from './pages/TouristDashboard';
 import GuideDashboard from './pages/GuideDashboard';
 import SellerDashboard from './pages/SellerDashboard';
@@ -54,10 +53,7 @@ function App() {
                 }
               />
             </Route>
-
-            {/* Routes without Navbar (optional, for login/signup) */}
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
           </Routes>
         </div>
       </Router>
