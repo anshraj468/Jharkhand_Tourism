@@ -60,7 +60,7 @@ const LoginPage: React.FC = () => {
         return;
       }
       
-      const success = await signup(name, email, password, role);
+      const success = await signup(name, email, password, role, govtId);
       if (success) {
         setSuccessMessage('Signup successful! Please sign in to continue.');
         setAuthMode('signin');
@@ -172,7 +172,6 @@ const LoginPage: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">I am a:</label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {/* Sign up karte samay 'admin' ka option nahi dikhega */}
                 {(authMode === 'signin' ? ['tourist', 'guide', 'seller', 'admin'] : ['tourist', 'guide', 'seller']).map((r) => (
                   <button type="button" key={r} onClick={() => setRole(r)} className={`py-2 px-4 rounded-lg border-2 font-medium capitalize transition-colors ${role === r ? 'bg-green-100 border-green-500 text-green-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
                     {r}

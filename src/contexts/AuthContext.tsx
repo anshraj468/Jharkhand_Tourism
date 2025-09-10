@@ -1,43 +1,44 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-// Backend API का URL, जहाँ हमारा Node.js सर्वर चल रहा है
-const API_URL = 'http://localhost:5000/api/auth';
-
-// 1. Interfaces (आपके कोड से) - यह बताता है कि डेटा कैसा दिखेगा
+// Step 1: User ke data ka structure define karein
 interface User {
   name: string;
   email: string;
-  role: 'tourist' | 'guide' | 'seller';
+  role: 'tourist' | 'guide' | 'seller' | 'admin';
 }
 
+// Step 2: Context mein kya-kya hoga, uska structure define karein
 interface AuthContextType {
   user: User | null;
-  token: string | null; // JWT टोकन को स्टोर करने के लिए जोड़ा गया
-  login: (email: string, password: string, role: string) => Promise<boolean>;
-  signup: (name: string, email: string, password: string, role: string) => Promise<boolean>;
-  logout: () => void;
+  token: string | null;
   isLoading: boolean;
+  signup: (name: string, email: string, password: string, role: string, govtId?: string) => Promise<boolean>;
+  login: (email: string, password: string, role: string) => Promise<boolean>;
+  logout: () => void;
 }
 
-// Context बनाना
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Backend API ka URL
+const API_URL = 'http://localhost:5000/api/auth';
 
-// कस्टम हुक बनाना ताकि इसे आसानी से इस्तेमाल किया जा सके
+// Step 3: Context banayein
+const AuthContext = createContext<AuthContextType | null>(null);
+
+// Step 4: Ek custom hook banayein taaki context ko aasani se use kar sakein
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
 
-// AuthProvider Component जो पूरे ऐप को रैप करेगा
+// Step 5: AuthProvider component banayein jo saara logic sambhalega
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-  const [isLoading, setIsLoading] = useState(true); // शुरू में true ताकि हम सेशन चेक कर सकें
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // यह useEffect ऐप लोड होने पर चलता है ताकि पुराने लॉगिन सेशन को जांचा जा सके
+  // Jab app load ho, to check karein ki user pehle se logged in hai ya nahi
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
@@ -46,20 +47,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
     }
-    setIsLoading(false); // जांच पूरी हुई
+    setIsLoading(false); // Checking poori ho gayi
   }, []);
 
-  // API कॉल: साइनअप
-  const signup = async (name: string, email: string, password: string, role: string): Promise<boolean> => {
+  // Signup function
+  const signup = async (name: string, email: string, password: string, role: string, govtId?: string): Promise<boolean> => {
     setIsLoading(true);
     try {
       const response = await fetch(`${API_URL}/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ name, email, password, role, govtId }),
       });
       setIsLoading(false);
-      // अगर response status 201 (Created) है तो true लौटाएगा
       return response.ok;
     } catch (error) {
       console.error('Signup Error:', error);
@@ -68,7 +68,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // API कॉल: लॉगिन
+  // Login function
   const login = async (email: string, password: string, role: string): Promise<boolean> => {
     setIsLoading(true);
     try {
@@ -77,20 +77,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, role }),
       });
-
+      
       if (!response.ok) {
         setIsLoading(false);
-        return false; // गलत पासवर्ड या ईमेल पर false लौटाएगा
+        return false;
       }
-
+      
       const data = await response.json();
-
-      // सफलतापूर्वक लॉगिन होने पर, टोकन और उपयोगकर्ता डेटा को localStorage और state में सहेजें
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       setToken(data.token);
       setUser(data.user);
-
       setIsLoading(false);
       return true;
     } catch (error) {
@@ -100,28 +97,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // लॉगआउट फंक्शन
+  // Logout function
   const logout = () => {
-    // localStorage और state दोनों से टोकन और उपयोगकर्ता डेटा हटा दें
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem('user');
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setToken(null);
+    setUser(null);
   };
 
-  // Context की वैल्यू जो पूरे ऐप में उपलब्ध होगी
-  const value = {
-    user,
-    token,
-    login,
-    signup,
-    logout,
-    isLoading,
-  };
+  const value = { user, token, isLoading, signup, login, logout };
 
   return (
     <AuthContext.Provider value={value}>
-      {/* जब तक सेशन की जांच हो रही है, तब तक बच्चों को रेंडर न करें */}
       {!isLoading && children}
     </AuthContext.Provider>
   );
