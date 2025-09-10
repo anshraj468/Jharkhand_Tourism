@@ -2,6 +2,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
+import FloatingChatbot from './FloatingChatbot';
 
 const MainLayout: React.FC = () => {
   return (
@@ -10,6 +11,9 @@ const MainLayout: React.FC = () => {
       <main>
         <Outlet /> {/* This is where your page components will be rendered */}
       </main>
+      <FloatingChatbot /> {
+        
+      }
     </div>
   );
 };
