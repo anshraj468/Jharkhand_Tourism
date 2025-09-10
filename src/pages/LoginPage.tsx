@@ -1,7 +1,6 @@
-// src/pages/LoginPage.tsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext'; // Using the central auth context
+import { useAuth } from '../contexts/AuthContext';
 import { ArrowRight, Mail, Lock, User, ShieldCheck } from 'lucide-react';
 
 // --- GOVT ID VERIFICATION DUMMY FUNCTION ---
@@ -25,7 +24,7 @@ const LoginPage: React.FC = () => {
   const { login, signup, isLoading } = useAuth(); 
   const navigate = useNavigate(); 
 
-  const BackgroundImage = 'Images/Welocome.jpeg'; 
+  const BackgroundImage = '/Images/Welocome.jpeg'; 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +33,10 @@ const LoginPage: React.FC = () => {
 
     if (authMode === 'signup') {
       // --- SIGN UP LOGIC ---
+      if (role === 'admin') {
+        setError('You cannot sign up as an Admin.');
+        return;
+      }
       if (!name || !email || !password || !confirmPassword) {
         setError('Please fill in all fields');
         return;
@@ -44,9 +47,7 @@ const LoginPage: React.FC = () => {
           return;
         }
         if (!verifyGovernmentId(govtId)) {
-          setError(
-            'Invalid Government ID. Please enter a valid Aadhaar (12 digits) or PAN (ABCDE1234F)'
-          );
+          setError('Invalid Government ID. Please enter a valid Aadhaar (12 digits) or PAN (ABCDE1234F)');
           return;
         }
       }
@@ -62,8 +63,7 @@ const LoginPage: React.FC = () => {
       const success = await signup(name, email, password, role);
       if (success) {
         setSuccessMessage('Signup successful! Please sign in to continue.');
-        setAuthMode('signin'); // Switch to sign in view
-        // Clear fields
+        setAuthMode('signin');
         setName('');
         setEmail('');
         setPassword('');
@@ -82,7 +82,7 @@ const LoginPage: React.FC = () => {
       
       const success = await login(email, password, role);
       if (success) {
-        navigate(`/dashboard/${role}`); // Redirect to the correct dashboard
+        navigate(`/dashboard/${role}`);
       } else {
         setError('Invalid credentials or role mismatch. Please try again.');
       }
@@ -92,11 +92,11 @@ const LoginPage: React.FC = () => {
   const Logo = () => (
     <div className="flex items-center space-x-2">
       <img
-        src="Images/logo-login.png"
+        src="/Images/logo-login.png"
         alt="Jharkhand Tourism Logo"
         className="h-20 w-20 object-contain"
       />
-      <span className="text-2xl font-semibold text-white-700">
+      <span className="text-2xl font-semibold text-white">
         Jharkhand Tourism
       </span>
     </div>
@@ -111,7 +111,6 @@ const LoginPage: React.FC = () => {
       >
         <div className="relative z-10 flex flex-col justify-between h-full p-12 bg-black/30">
           <Logo />
-          
         </div>
       </div>
 
@@ -142,12 +141,8 @@ const LoginPage: React.FC = () => {
             {authMode === 'signin' ? 'Welcome Back!' : 'Create Your Account'}
           </h2>
 
-          {error && (
-            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-6">{error}</div>
-          )}
-          {successMessage && (
-            <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg mb-6">{successMessage}</div>
-          )}
+          {error && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-6">{error}</div>}
+          {successMessage && <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg mb-6">{successMessage}</div>}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {authMode === 'signup' && (
@@ -168,18 +163,17 @@ const LoginPage: React.FC = () => {
             </div>
             
             {authMode === 'signup' && (
-              <>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-                  <input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500" placeholder="Confirm Password" required/>
-                </div>
-              </>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
+                <input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500" placeholder="Confirm Password" required/>
+              </div>
             )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">I am a:</label>
-              <div className="grid grid-cols-3 gap-3">
-                {['tourist', 'guide', 'seller'].map((r) => (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {/* Sign up karte samay 'admin' ka option nahi dikhega */}
+                {(authMode === 'signin' ? ['tourist', 'guide', 'seller', 'admin'] : ['tourist', 'guide', 'seller']).map((r) => (
                   <button type="button" key={r} onClick={() => setRole(r)} className={`py-2 px-4 rounded-lg border-2 font-medium capitalize transition-colors ${role === r ? 'bg-green-100 border-green-500 text-green-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
                     {r}
                   </button>

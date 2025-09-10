@@ -11,6 +11,7 @@ import LoginPage from './pages/LoginPage';
 import TouristDashboard from './pages/TouristDashboard';
 import GuideDashboard from './pages/GuideDashboard';
 import SellerDashboard from './pages/SellerDashboard';
+import AdminDashboard from './pages/AdminDashboard'; // <<-- AdminDashboard ko import karein
 import MapPage from './pages/MapPage';
 import TransportPage from './pages/TransportPage';
 import TripPlanner from './pages/TripPlanner';
@@ -30,7 +31,6 @@ function App() {
               <Route path="/tripplanner" element={<TripPlanner />} />
 
               {/* === PROTECTED DASHBOARD ROUTES === */}
-              {/* Har dashboard ko uske apne role ke sath protect kiya gaya hai */}
               
               <Route
                 path="/dashboard/tourist"
@@ -53,6 +53,16 @@ function App() {
                 element={
                   <ProtectedRoute requiredRole="seller">
                     <SellerDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* <<-- YEH NAYA ADMIN ROUTE HAI -->> */}
+              <Route
+                path="/dashboard/admin"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminDashboard />
                   </ProtectedRoute>
                 }
               />
