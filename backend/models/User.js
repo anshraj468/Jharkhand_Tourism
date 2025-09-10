@@ -9,11 +9,24 @@ const UserSchema = new mongoose.Schema({
     required: true, 
     enum: ['tourist', 'guide', 'seller', 'admin']
   },
-  // <<-- YEH NAYI FIELD ADD KAREIN -->>
   govtId: { 
     type: String,
-    default: null // Yeh zaroori nahi hai, isliye default null hai
+    default: null
   },
+  // <<-- NAYE FIELDS -->>
+  isVerified: { // Admin dwara verification ke liye
+    type: Boolean,
+    default: false
+  },
+  qualifications: { // Guide ke liye
+    type: [String],
+    default: []
+  },
+  bankAccount: { // Guide aur Seller ke liye
+    accountHolderName: String,
+    accountNumber: String,
+    ifscCode: String,
+  }
 }, { 
   timestamps: true 
 });

@@ -1,416 +1,174 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  ShoppingBag, 
-  Package, 
-  DollarSign, 
-  Users,
-  TrendingUp,
-  Plus,
-  Eye,
-  Edit,
-  Star,
-  // Calendar,
-  AlertCircle,
-  CheckCircle
-} from 'lucide-react';
+import { Banknote, Package, ShieldCheck, PlusCircle } from 'lucide-react';
 
+// Product ke data ka structure
+interface Product {
+  _id?: string;
+  name: string;
+  description: string;
+  price: number | ''; // price number ya khali string ho sakta hai
+  imageUrl: string;
+}
 
 const SellerDashboard: React.FC = () => {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('overview');
+  const { user, token, fetchUser } = useAuth();
+  const [activeTab, setActiveTab] = useState('products');
+  
+  const [myProducts, setMyProducts] = useState<Product[]>([]);
+  const [newProduct, setNewProduct] = useState<Product>({ name: '', description: '', price: '', imageUrl: '' });
+  const [bankDetails, setBankDetails] = useState({ accountHolderName: '', accountNumber: '', ifscCode: '' });
+  const [message, setMessage] = useState('');
+  const [loadingProducts, setLoadingProducts] = useState(false);
 
-  const products = [
-    {
-      id: 1,
-      name: 'Handwoven Tribal Basket',
-      price: '₹850',
-      stock: 12,
-      sold: 28,
-      image: 'https://images.pexels.com/photos/1070360/pexels-photo-1070360.jpeg?auto=compress&cs=tinysrgb&w=400',
-      status: 'active'
-    },
-    {
-      id: 2,
-      name: 'Traditional Dokra Art',
-      price: '₹1,200',
-      stock: 5,
-      sold: 15,
-      image: 'https://images.pexels.com/photos/1070360/pexels-photo-1070360.jpeg?auto=compress&cs=tinysrgb&w=400',
-      status: 'active'
-    },
-    {
-      id: 3,
-      name: 'Bamboo Wind Chime',
-      price: '₹450',
-      stock: 0,
-      sold: 42,
-      image: 'https://images.pexels.com/photos/1070360/pexels-photo-1070360.jpeg?auto=compress&cs=tinysrgb&w=400',
-      status: 'out_of_stock'
+  // Jab user data mile, to bank details form ko bharein
+  useEffect(() => {
+    if (user) {
+      setBankDetails({
+        accountHolderName: user.bankAccount?.accountHolderName || '',
+        accountNumber: user.bankAccount?.accountNumber || '',
+        ifscCode: user.bankAccount?.ifscCode || ''
+      });
     }
-  ];
+  }, [user]);
 
-  const recentOrders = [
-    {
-      id: 1,
-      customer: 'Anita Verma',
-      product: 'Handwoven Tribal Basket',
-      amount: '₹850',
-      date: '2025-01-20',
-      status: 'completed'
-    },
-    {
-      id: 2,
-      customer: 'Rohit Gupta',
-      product: 'Traditional Dokra Art',
-      amount: '₹1,200',
-      date: '2025-01-19',
-      status: 'shipped'
-    },
-    {
-      id: 3,
-      customer: 'Meera Shah',
-      product: 'Bamboo Wind Chime',
-      amount: '₹450',
-      date: '2025-01-18',
-      status: 'processing'
-    }
-  ];
-
-  const salesData = {
-    thisMonth: '₹18,500',
-    lastMonth: '₹15,200',
-    totalSales: '₹125,000',
-    pendingOrders: 8
+  // Seller ke products ko fetch karein
+  const fetchMyProducts = async () => {
+      if (!user?._id) return;
+      setLoadingProducts(true);
+      try {
+          const response = await fetch('http://localhost:5000/api/products');
+          if (response.ok) {
+              const allProducts = await response.json();
+              const filteredProducts = allProducts.filter((p: any) => p.seller._id === user._id);
+              setMyProducts(filteredProducts);
+          }
+      } catch (error) {
+          console.error("Failed to fetch products", error);
+      } finally {
+          setLoadingProducts(false);
+      }
   };
 
-  const customerReviews = [
-    {
-      id: 1,
-      customer: 'Sunita Kumari',
-      product: 'Handwoven Tribal Basket',
-      rating: 5,
-      comment: 'Beautiful craftsmanship! Exactly what I was looking for.',
-      date: '3 days ago'
-    },
-    {
-      id: 2,
-      customer: 'Dev Sharma',
-      product: 'Traditional Dokra Art',
-      rating: 4,
-      comment: 'Great quality, fast delivery. Highly recommended!',
-      date: '1 week ago'
+  useEffect(() => {
+    fetchMyProducts();
+  }, [user]);
+
+
+  const handleBankUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage('');
+    try {
+      const response = await fetch('http://localhost:5000/api/profile/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': token || '' },
+        body: JSON.stringify({ bankAccount: bankDetails })
+      });
+      if(response.ok) {
+        setMessage('Bank details updated successfully!');
+        fetchUser(); // User data ko refresh karein
+      } else {
+        setMessage('Failed to update bank details.');
+      }
+    } catch (error) {
+      setMessage('An error occurred.');
     }
-  ];
+  };
+
+  const handleProductSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage('');
+    if (!newProduct.name || !newProduct.price || !newProduct.imageUrl) {
+        setMessage('Please fill all product fields.');
+        return;
+    }
+    try {
+        const response = await fetch('http://localhost:5000/api/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-auth-token': token || '' },
+            body: JSON.stringify({ ...newProduct, price: Number(newProduct.price) })
+        });
+        const data = await response.json();
+        if(response.ok) {
+            setMessage('Product added successfully!');
+            setNewProduct({ name: '', description: '', price: '', imageUrl: '' });
+            fetchMyProducts(); // Product list ko refresh karein
+        } else {
+            setMessage(`Failed to add product: ${data.msg || 'Server error'}`);
+        }
+    } catch (error) {
+        setMessage('An error occurred while adding product.');
+    }
+  };
+  
+  const ProfileTab = (
+    <div className="bg-white p-6 md:p-8 rounded-lg shadow space-y-6">
+        {message && <p className={`text-center p-3 rounded-md ${message.includes('successfully') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{message}</p>}
+        <form onSubmit={handleBankUpdate} className="space-y-6">
+            <div>
+              <h3 className="text-xl font-bold flex items-center text-gray-800"><Banknote className="mr-3 text-green-500"/>Bank Account Details</h3>
+              <div className="grid md:grid-cols-3 gap-4 mt-2">
+                  <input type="text" placeholder="Account Holder Name" value={bankDetails.accountHolderName} onChange={e => setBankDetails({...bankDetails, accountHolderName: e.target.value})} className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"/>
+                  <input type="text" placeholder="Account Number" value={bankDetails.accountNumber} onChange={e => setBankDetails({...bankDetails, accountNumber: e.target.value})} className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"/>
+                  <input type="text" placeholder="IFSC Code" value={bankDetails.ifscCode} onChange={e => setBankDetails({...bankDetails, ifscCode: e.target.value})} className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"/>
+              </div>
+            </div>
+            <button type="submit" className="bg-orange-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-orange-700 transition-colors">Save Bank Details</button>
+        </form>
+    </div>
+  );
+
+  const ProductsTab = (
+     <div className="space-y-8">
+        <div className="bg-white p-6 md:p-8 rounded-lg shadow">
+          {message && <p className={`mb-4 text-center p-3 rounded-md ${message.includes('successfully') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{message}</p>}
+          <form onSubmit={handleProductSubmit} className="space-y-4">
+              <h3 className="text-xl font-bold flex items-center text-gray-800"><PlusCircle className="mr-3 text-orange-500"/>Add a New Product</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                  <input type="text" placeholder="Product Name" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500" required/>
+                  <input type="number" placeholder="Price (₹)" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value === '' ? '' : Number(e.target.value)})} className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500" required/>
+                  <input type="text" placeholder="Image URL" value={newProduct.imageUrl} onChange={e => setNewProduct({...newProduct, imageUrl: e.target.value})} className="p-3 border border-gray-300 rounded-lg col-span-2 focus:ring-2 focus:ring-orange-500" required/>
+                  <textarea placeholder="Description" value={newProduct.description} onChange={e => setNewProduct({...newProduct, description: e.target.value})} className="p-3 border border-gray-300 rounded-lg col-span-2 focus:ring-2 focus:ring-orange-500" rows={3} required></textarea>
+              </div>
+              <button type="submit" className="bg-orange-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-orange-700 transition-colors">Add Product</button>
+          </form>
+        </div>
+        <div className="bg-white p-6 md:p-8 rounded-lg shadow">
+          <h3 className="text-xl font-bold text-gray-800 mb-4"><Package className="inline-block mr-2"/>Your Listed Products</h3>
+          <div className="space-y-4">
+            {loadingProducts ? <p>Loading your products...</p> : myProducts.length > 0 ? myProducts.map(product => (
+              <div key={product._id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center space-x-4">
+                  <img src={product.imageUrl} alt={product.name} className="w-16 h-16 object-cover rounded"/>
+                  <div>
+                    <p className="font-semibold">{product.name}</p>
+                    <p className="text-gray-600">₹{product.price}</p>
+                  </div>
+                </div>
+              </div>
+            )) : <p>You haven't added any products yet.</p>}
+          </div>
+        </div>
+     </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
-    
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Header */}
-        <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-xl text-white p-8 mb-8">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">
-                Welcome, {user?.name}!
-              </h1>
-              <p className="text-orange-100 text-lg">
-                Showcase your beautiful handicrafts to the world
-              </p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-xl text-white p-8 mb-8">
+                <h1 className="text-3xl font-bold">Seller Dashboard</h1>
+                <p className="text-orange-100 text-lg mt-1">Welcome, {user?.name}!</p>
+                {user?.isVerified && <div className="mt-2 inline-flex items-center bg-green-500 px-3 py-1 rounded-full text-sm font-semibold"><ShieldCheck className="mr-2"/>Verified</div>}
             </div>
-            <div className="mt-4 md:mt-0 flex space-x-4">
-              <button className="bg-white text-orange-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center">
-                <Plus className="h-5 w-5 mr-2" />
-                Add Product
-              </button>
-              <button className="bg-orange-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-800 transition-colors flex items-center">
-                <Package className="h-5 w-5 mr-2" />
-                Manage Orders
-              </button>
+            <div className="bg-white rounded-lg shadow-sm mb-8">
+                <nav className="-mb-px flex space-x-8 px-6 border-b">
+                    <button onClick={() => { setActiveTab('products'); setMessage(''); }} className={`py-4 px-1 border-b-2 font-medium ${activeTab === 'products' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>My Products</button>
+                    <button onClick={() => { setActiveTab('profile'); setMessage(''); }} className={`py-4 px-1 border-b-2 font-medium ${activeTab === 'profile' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Profile & Bank</button>
+                </nav>
             </div>
-          </div>
+            {activeTab === 'products' && ProductsTab}
+            {activeTab === 'profile' && ProfileTab}
         </div>
-
-        {/* Navigation Tabs */}
-        <div className="bg-white rounded-lg shadow-sm mb-8">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8 px-6">
-              {[
-                { id: 'overview', label: 'Overview', icon: TrendingUp },
-                { id: 'products', label: 'Products', icon: Package },
-                { id: 'orders', label: 'Orders', icon: ShoppingBag },
-                { id: 'analytics', label: 'Analytics', icon: DollarSign }
-              ].map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setActiveTab(id)}
-                  className={`flex items-center py-4 px-2 border-b-2 font-medium text-sm ${
-                    activeTab === id
-                      ? 'border-orange-500 text-orange-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Icon className="h-5 w-5 mr-2" />
-                  {label}
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'overview' && (
-          <div className="grid lg:grid-cols-3 gap-8">
-            {/* Main Content */}
-            <div className="lg:col-span-2 space-y-8">
-              {/* Quick Stats */}
-              <div className="grid md:grid-cols-4 gap-6">
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <div className="flex items-center">
-                    <div className="bg-green-100 p-3 rounded-lg">
-                      <DollarSign className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm text-gray-600">This Month</p>
-                      <p className="text-2xl font-bold text-gray-900">{salesData.thisMonth}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <div className="flex items-center">
-                    <div className="bg-blue-100 p-3 rounded-lg">
-                      <Package className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm text-gray-600">Total Products</p>
-                      <p className="text-2xl font-bold text-gray-900">{products.length}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <div className="flex items-center">
-                    <div className="bg-yellow-100 p-3 rounded-lg">
-                      <ShoppingBag className="h-6 w-6 text-yellow-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm text-gray-600">Total Orders</p>
-                      <p className="text-2xl font-bold text-gray-900">85</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <div className="flex items-center">
-                    <div className="bg-purple-100 p-3 rounded-lg">
-                      <Users className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm text-gray-600">Customers</p>
-                      <p className="text-2xl font-bold text-gray-900">67</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recent Orders */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-6">Recent Orders</h2>
-                <div className="space-y-4">
-                  {recentOrders.map((order) => (
-                    <div key={order.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className="bg-gray-100 p-3 rounded-full">
-                            <ShoppingBag className="h-6 w-6 text-gray-600" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-900">{order.customer}</h3>
-                            <p className="text-sm text-gray-600">{order.product}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold text-gray-900">{order.amount}</p>
-                          <p className="text-sm text-gray-600">{order.date}</p>
-                        </div>
-                      </div>
-                      <div className="mt-4 flex items-center justify-between">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          order.status === 'completed' 
-                            ? 'bg-green-100 text-green-800' 
-                            : order.status === 'shipped'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {order.status}
-                        </span>
-                        <div className="flex space-x-2">
-                          <button className="text-blue-600 hover:text-blue-700">
-                            <Eye className="h-5 w-5" />
-                          </button>
-                          <button className="text-gray-600 hover:text-gray-700">
-                            <Edit className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Top Products */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-6">Your Products</h2>
-                <div className="grid md:grid-cols-2 gap-6">
-                  {products.slice(0, 4).map((product) => (
-                    <div key={product.id} className="border border-gray-200 rounded-lg p-4">
-                      <img 
-                        src={product.image} 
-                        alt={product.name}
-                        className="w-full h-32 object-cover rounded-lg mb-4"
-                      />
-                      <h3 className="font-semibold text-gray-900 mb-2">{product.name}</h3>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-lg font-bold text-gray-900">{product.price}</span>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          product.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {product.status === 'active' ? 'In Stock' : 'Out of Stock'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm text-gray-600">
-                        <span>Stock: {product.stock}</span>
-                        <span>Sold: {product.sold}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-8">
-              {/* Store Performance */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-4">Store Performance</h2>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Store Rating</span>
-                    <div className="flex items-center">
-                      <Star className="h-4 w-4 text-yellow-400 mr-1" />
-                      <span className="font-semibold">4.7</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Response Rate</span>
-                    <span className="font-semibold text-green-600">98%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">On-time Delivery</span>
-                    <span className="font-semibold text-green-600">95%</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recent Reviews */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-4">Recent Reviews</h2>
-                <div className="space-y-4">
-                  {customerReviews.map((review) => (
-                    <div key={review.id} className="border-b border-gray-200 pb-4 last:border-b-0 last:pb-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold text-sm">{review.customer}</span>
-                        <div className="flex items-center">
-                          {[...Array(5)].map((_, i) => (
-                            <Star 
-                              key={i} 
-                              className={`h-3 w-3 ${
-                                i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
-                              }`} 
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-600 mb-2">{review.product}</p>
-                      <p className="text-sm text-gray-700">{review.comment}</p>
-                      <span className="text-xs text-gray-500">{review.date}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
-                <div className="space-y-3">
-                  <button className="flex items-center w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                    <Plus className="h-5 w-5 text-orange-600 mr-3" />
-                    <span className="text-gray-700">Add New Product</span>
-                  </button>
-                  <button className="flex items-center w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                    <Package className="h-5 w-5 text-blue-600 mr-3" />
-                    <span className="text-gray-700">Manage Inventory</span>
-                  </button>
-                  <button className="flex items-center w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                    <ShoppingBag className="h-5 w-5 text-green-600 mr-3" />
-                    <span className="text-gray-700">Process Orders</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Alerts */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-4">Alerts</h2>
-                <div className="space-y-3">
-                  <div className="flex items-start">
-                    <AlertCircle className="h-5 w-5 text-red-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm text-gray-700">3 products are out of stock</p>
-                      <p className="text-xs text-gray-500">Restock to avoid missing sales</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm text-gray-700">5 new orders to process</p>
-                      <p className="text-xs text-gray-500">Process within 24 hours</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Other tab contents */}
-        {activeTab === 'products' && (
-          <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-            <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Product Management</h3>
-            <p className="text-gray-600">Add, edit, and manage your handicraft products</p>
-          </div>
-        )}
-
-        {activeTab === 'orders' && (
-          <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-            <ShoppingBag className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Order Management</h3>
-            <p className="text-gray-600">Track and manage customer orders</p>
-          </div>
-        )}
-
-        {activeTab === 'analytics' && (
-          <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-            <DollarSign className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Sales Analytics</h3>
-            <p className="text-gray-600">View detailed sales reports and insights</p>
-          </div>
-        )}
-      </div>
     </div>
   );
 };

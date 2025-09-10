@@ -1,139 +1,199 @@
- import React, { useState, useEffect } from 'react';
-    import { Link } from 'react-router-dom';
-    import { useAuth } from '../contexts/AuthContext';
-    import { 
-      MapPin, Calendar, Star, Heart, Navigation, MessageCircle, TrendingUp, Search, User as UserIcon
-    } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Search, ShoppingCart, ShieldCheck, Star } from 'lucide-react';
 
-    // Guide ke data ke liye ek Interface
-    interface Guide {
-      _id: string;
-      name: string;
+
+// Hamare data ke liye Interfaces
+interface Guide {
+  _id: string;
+  name: string;
+  qualifications: string[];
+  isVerified: boolean;
+}
+
+interface Product {
+  _id: string;
+  name: string;
+  price: number;
+  imageUrl: string;
+  seller: {
+    _id: string;
+    name: string;
+    isVerified: boolean;
+  };
+}
+
+// Payment ke liye type
+type PaymentItem = {
+  type: 'guide' | 'product';
+  item: Guide | Product;
+};
+
+const TouristDashboard: React.FC = () => {
+  const { user, token } = useAuth();
+  const [activeTab, setActiveTab] = useState('guides');
+  const [guides, setGuides] = useState<Guide[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [paymentInfo, setPaymentInfo] = useState<PaymentItem | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Component load hone par backend se data fetch karein
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [guidesRes, productsRes] = await Promise.all([
+          fetch('http://localhost:5000/api/guides'),
+          fetch('http://localhost:5000/api/products')
+        ]);
+        if (guidesRes.ok) {
+          const guidesData = await guidesRes.json();
+          setGuides(guidesData);
+        }
+        if (productsRes.ok) {
+          const productsData = await productsRes.json();
+          setProducts(productsData);
+        }
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Payment process ko handle karne wala function
+  const handlePayment = async () => {
+    if (!paymentInfo || !token) return;
+    
+    let paymentData;
+
+    // Check karein ki payment guide ke liye hai ya product ke liye
+    if (paymentInfo.type === 'guide') {
+        const guide = paymentInfo.item as Guide;
+        paymentData = {
+            to: guide._id,
+            amount: 5000, // Guide ke liye abhi fixed price
+            product: undefined,
+        };
+    } else {
+        const product = paymentInfo.item as Product;
+        paymentData = {
+            to: product.seller._id,
+            amount: product.price,
+            product: product._id,
+        };
     }
 
-    const TouristDashboard: React.FC = () => {
-      const { user } = useAuth();
-      const [activeTab, setActiveTab] = useState('overview');
-      const [guides, setGuides] = useState<Guide[]>([]);
-      const [loadingGuides, setLoadingGuides] = useState(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/payment/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+        body: JSON.stringify(paymentData),
+      });
+      const data = await response.json();
+      if(response.ok) {
+        alert(`Payment Successful!\n\nThis transaction is secured.\nYour Blockchain Transaction Hash is:\n${data.transactionHash}`);
+      } else {
+        alert(`Payment Failed: ${data.msg || 'An unknown error occurred.'}`);
+      }
+    } catch (error) {
+      alert('An error occurred during payment. Please check your connection.');
+    } finally {
+      setPaymentInfo(null); // Modal ko band karein
+    }
+  };
 
-      useEffect(() => {
-        const fetchGuides = async () => {
-          try {
-            setLoadingGuides(true);
-            const response = await fetch('http://localhost:5000/api/guides');
-            if (response.ok) {
-              const data = await response.json();
-              setGuides(data);
-            } else {
-              console.error("Guides ko fetch karne mein vifal");
-              setGuides([]); // Agar error ho to guides ko khali set karein
-            }
-          } catch (error) {
-            console.error("Guides fetch karte samay error:", error);
-            setGuides([]);
-          } finally {
-            setLoadingGuides(false);
-          }
-        };
-        fetchGuides();
-      }, []);
-
-      return (
-        <div className="min-h-screen bg-gray-50">
-        
-          
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Welcome Header */}
-            <div className="bg-gradient-to-r from-emerald-600 to-green-600 rounded-xl text-white p-8 mb-8">
-              <h1 className="text-3xl font-bold">Welcome back, {user?.name}!</h1>
-              <p className="text-emerald-100 text-lg mt-2">Ready for your next adventure in Jharkhand?</p>
+  const GuidesTab = (
+     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {guides.map(guide => (
+            <div key={guide._id} className="bg-white p-5 rounded-lg shadow-md flex flex-col hover:shadow-xl transition-shadow">
+                <h3 className="font-bold text-lg flex items-center">
+                  {guide.name} 
+                  {guide.isVerified && <span title="Verified by Jharkhand Tourism"><ShieldCheck className="w-5 h-5 ml-2 text-green-500"/></span>}
+                </h3>
+                <p className="text-sm text-gray-600 my-2 flex-grow">
+                  <span className="font-semibold">Skills:</span> {guide.qualifications.join(', ') || 'Not specified'}
+                </p>
+                <button 
+                  onClick={() => setPaymentInfo({ type: 'guide', item: guide })} 
+                  className="w-full mt-auto bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Hire for ₹5000
+                </button>
             </div>
+        ))}
+     </div>
+  );
 
-            {/* Navigation Tabs */}
-            <div className="bg-white rounded-lg shadow-sm mb-8">
-              <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8 px-6 overflow-x-auto">
-                  {[
-                    { id: 'overview', label: 'Overview', icon: TrendingUp },
-                    { id: 'find-guides', label: 'Find Guides', icon: Search },
-                    { id: 'trips', label: 'My Trips', icon: Calendar },
-                    { id: 'wishlist', label: 'Wishlist', icon: Heart }
-                  ].map(({ id, label, icon: Icon }) => (
-                    <button
-                      key={id}
-                      onClick={() => setActiveTab(id)}
-                      className={`flex-shrink-0 flex items-center py-4 px-2 border-b-2 font-medium text-sm ${
-                        activeTab === id
-                          ? 'border-emerald-500 text-emerald-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
+  const ShopTab = (
+    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {products.map(product => (
+            <div key={product._id} className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col hover:shadow-xl transition-shadow">
+                <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover"/>
+                <div className="p-4 flex flex-col flex-grow">
+                    <h3 className="font-bold text-lg">{product.name}</h3>
+                    <p className="text-sm text-gray-600 flex items-center">
+                      by {product.seller.name} 
+                      {product.seller.isVerified && <span title="Verified Seller"><ShieldCheck className="w-4 h-4 ml-1 text-green-500"/></span>}
+                    </p>
+                    <p className="font-extrabold text-xl my-2">₹{product.price}</p>
+                    <button 
+                      onClick={() => setPaymentInfo({ type: 'product', item: product })} 
+                      className="w-full mt-auto bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors"
                     >
-                      <Icon className="h-5 w-5 mr-2" />
-                      {label}
+                      Buy Now
                     </button>
-                  ))}
+                </div>
+            </div>
+        ))}
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="bg-gradient-to-r from-emerald-600 to-green-600 rounded-xl text-white p-8 mb-8">
+                <h1 className="text-3xl font-bold">Explore Jharkhand</h1>
+                <p className="text-emerald-100 text-lg mt-1">Find verified local guides and authentic handicrafts.</p>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm mb-8">
+                <nav className="-mb-px flex space-x-8 px-6 border-b">
+                    <button onClick={() => setActiveTab('guides')} className={`py-4 px-1 border-b-2 font-medium flex items-center ${activeTab === 'guides' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}><Search className="mr-2 h-5 w-5"/>Find Guides</button>
+                    <button onClick={() => setActiveTab('shop')} className={`py-4 px-1 border-b-2 font-medium flex items-center ${activeTab === 'shop' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}><ShoppingCart className="mr-2 h-5 w-5"/>Shop Local</button>
                 </nav>
+            </div>
+            
+            {loading ? <p className="text-center py-10">Loading awesome guides and products...</p> : (
+              <div>
+                {activeTab === 'guides' && (guides.length > 0 ? GuidesTab : <p className="text-center py-10 text-gray-500">No guides available right now. Please check back later.</p>)}
+                {activeTab === 'shop' && (products.length > 0 ? ShopTab : <p className="text-center py-10 text-gray-500">No products available in the shop yet.</p>)}
               </div>
-            </div>
-
-            {/* TAB CONTENT */}
-            <div>
-              {activeTab === 'overview' && (
-                <div className="p-4 bg-white rounded-lg shadow">
-                  <h3 className="text-xl font-bold">Overview</h3>
-                  <p>Welcome to your dashboard. Here you can manage your trips and find new adventures.</p>
-                </div>
-              )}
-
-              {activeTab === 'find-guides' && (
-                <div className="bg-white rounded-lg shadow-sm p-6 md:p-8">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Find Your Perfect Guide</h2>
-                  {loadingGuides ? (
-                    <p className="text-center text-gray-600">Available guides ko load kiya ja raha hai...</p>
-                  ) : (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                      {guides.length > 0 ? (
-                        guides.map((guide) => (
-                          <div key={guide._id} className="border rounded-lg p-4 flex flex-col items-center text-center hover:shadow-xl hover:scale-105 transition-all duration-300 bg-white">
-                            <img 
-                              src={`https://ui-avatars.com/api/?name=${guide.name.replace(' ', '+')}&background=059669&color=fff&size=128&font-size=0.33`}
-                              alt={guide.name}
-                              className="w-24 h-24 rounded-full mb-4 border-4 border-emerald-200"
-                            />
-                            <h3 className="text-lg font-semibold text-gray-800">{guide.name}</h3>
-                            <p className="text-sm text-gray-500 mb-4">Expert in Local Culture</p>
-                            <button className="w-full mt-auto bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors font-medium flex items-center justify-center">
-                              <MessageCircle className="w-4 h-4 mr-2" />
-                              Contact Guide
-                            </button>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="col-span-full text-center text-gray-600">Abhi tak koi guide register nahi hua hai. Kripya baad mein check karein.</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {activeTab === 'trips' && (
-                 <div className="p-4 bg-white rounded-lg shadow">
-                  <h3 className="text-xl font-bold">My Trips</h3>
-                  <p>Yahan aapke aane wale trips dikhenge.</p>
-                </div>
-              )}
-
-               {activeTab === 'wishlist' && (
-                 <div className="p-4 bg-white rounded-lg shadow">
-                  <h3 className="text-xl font-bold">My Wishlist</h3>
-                  <p>Yahan aapke pasandida sthan dikhenge.</p>
-                </div>
-              )}
-            </div>
-          </div>
+            )}
         </div>
-      );
-    };
+        
+        {/* Payment Modal */}
+        {paymentInfo && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+                <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+                    <h2 className="text-2xl font-bold mb-4">Confirm Payment</h2>
+                    <p className="text-gray-700">
+                      You are about to pay <span className="font-bold">₹{paymentInfo.type === 'guide' ? '5000' : (paymentInfo.item as Product).price}</span> to <span className="font-bold">{paymentInfo.type === 'guide' ? (paymentInfo.item as Guide).name : (paymentInfo.item as Product).seller.name}</span>.
+                    </p>
+                    <p className="text-xs text-gray-500 my-4 bg-gray-100 p-2 rounded">
+                      This transaction will be recorded with a unique, secure hash, simulating a blockchain entry.
+                    </p>
+                    <div className="flex justify-end gap-4 mt-6">
+                        <button onClick={() => setPaymentInfo(null)} className="px-4 py-2 rounded text-gray-700 bg-gray-200 hover:bg-gray-300 font-semibold">Cancel</button>
+                        <button onClick={handlePayment} className="px-6 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 font-semibold">Pay Now</button>
+                    </div>
+                </div>
+            </div>
+        )}
+    </div>
+  );
+};
 
-    export default TouristDashboard;
+export default TouristDashboard;

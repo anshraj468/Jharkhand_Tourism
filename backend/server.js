@@ -18,15 +18,19 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB Connected Successfully! ✅'))
   .catch(err => console.error('MongoDB Connection Error:', err));
 
-// 6. Define a simple test route
+// 6. Define a simple test route to check if the server is running
 app.get('/', (req, res) => {
   res.send('Jharkhand Tourism API is running!');
 });
 
-// 7. Use the API routes
+// 7. Use all the API routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/guides', require('./routes/guides'));
 app.use('/api/analytics', require('./routes/analytics'));
+app.use('/api/profile', require('./routes/profile'));
+app.use('/api/products', require('./routes/products'));
+app.use('/api/payment', require('./routes/payment'));
+app.use('/api/admin', require('./routes/admin'));
 
 // 8. Start the server
 const PORT = process.env.PORT || 5000;

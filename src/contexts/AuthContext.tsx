@@ -1,13 +1,22 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-// Step 1: User ke data ka structure define karein
+// User ke data ka poora structure define karein
 interface User {
+  _id?: string;
   name: string;
   email: string;
   role: 'tourist' | 'guide' | 'seller' | 'admin';
+  // Naye optional fields jo profile update se aayenge
+  isVerified?: boolean;
+  qualifications?: string[];
+  bankAccount?: {
+    accountHolderName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+  };
 }
 
-// Step 2: Context mein kya-kya hoga, uska structure define karein
+// Context mein kya-kya functions aur data hoga, uska structure
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -15,15 +24,12 @@ interface AuthContextType {
   signup: (name: string, email: string, password: string, role: string, govtId?: string) => Promise<boolean>;
   login: (email: string, password: string, role: string) => Promise<boolean>;
   logout: () => void;
+  fetchUser: () => void; // User data ko refresh karne ke liye naya function
 }
 
-// Backend API ka URL
-const API_URL = 'http://localhost:5000/api/auth';
-
-// Step 3: Context banayein
+const API_URL = 'http://localhost:5000';
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Step 4: Ek custom hook banayein taaki context ko aasani se use kar sakein
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -32,57 +38,55 @@ export const useAuth = () => {
   return context;
 };
 
-// Step 5: AuthProvider component banayein jo saara logic sambhalega
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true);
 
-  // Jab app load ho, to check karein ki user pehle se logged in hai ya nahi
-  useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false); // Checking poori ho gayi
-  }, []);
-
-  // Signup function
-  const signup = async (name: string, email: string, password: string, role: string, govtId?: string): Promise<boolean> => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role, govtId }),
-      });
-      setIsLoading(false);
-      return response.ok;
-    } catch (error) {
-      console.error('Signup Error:', error);
-      setIsLoading(false);
-      return false;
+  // Yeh function server se latest user data laayega
+  const fetchUser = async () => {
+    const currentToken = localStorage.getItem('token');
+    if (currentToken) {
+      try {
+        const res = await fetch(`${API_URL}/api/profile/me`, {
+          headers: { 'x-auth-token': currentToken }
+        });
+        if (res.ok) {
+          const userData = await res.json();
+          setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData)); // Local storage ko bhi update karein
+        } else {
+          // Agar token invalid ho gaya hai to logout kar dein
+          logout();
+        }
+      } catch (error) {
+        console.error("Failed to fetch user:", error);
+        logout();
+      }
     }
   };
 
-  // Login function
+  // Jab app load ho, to check karein ki user pehle se logged in hai ya nahi
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (token && storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+    setIsLoading(false);
+  }, [token]);
+
   const login = async (email: string, password: string, role: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/login`, {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, role }),
       });
-      
       if (!response.ok) {
         setIsLoading(false);
         return false;
       }
-      
       const data = await response.json();
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
@@ -97,15 +101,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Logout function
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
   };
+  
+  const signup = async (name: string, email: string, password: string, role: string, govtId?: string): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+        const response = await fetch(`${API_URL}/api/auth/signup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, password, role, govtId }),
+        });
+        setIsLoading(false);
+        return response.ok;
+    } catch (error) {
+        console.error('Signup Error:', error);
+        setIsLoading(false);
+        return false;
+    }
+  };
 
-  const value = { user, token, isLoading, signup, login, logout };
+  const value = { user, token, isLoading, signup, login, logout, fetchUser };
 
   return (
     <AuthContext.Provider value={value}>
