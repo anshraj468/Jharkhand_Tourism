@@ -22,12 +22,16 @@ function App() {
       <Router>
         <div className="min-h-screen bg-gray-50">
           <Routes>
-            {/* Routes with Navbar */}
+            {/* Routes jinke upar Navbar dikhega */}
             <Route element={<MainLayout />}>
               <Route path="/" element={<LandingPage />} />
               <Route path="/map" element={<MapPage />} />
               <Route path="/transport" element={<TransportPage />} />
               <Route path="/tripplanner" element={<TripPlanner />} />
+
+              {/* === PROTECTED DASHBOARD ROUTES === */}
+              {/* Har dashboard ko uske apne role ke sath protect kiya gaya hai */}
+              
               <Route
                 path="/dashboard/tourist"
                 element={
@@ -53,6 +57,8 @@ function App() {
                 }
               />
             </Route>
+
+            {/* Login Page (bina Navbar ke) */}
             <Route path="/login" element={<LoginPage />} />
           </Routes>
         </div>
