@@ -8,7 +8,7 @@ import {
   Shield,
   Globe,
 } from "lucide-react";
-import Navbar from "../components/Navbar";
+
 
 const LandingPage: React.FC = () => {
   // Hero images for slider
@@ -105,7 +105,7 @@ const LandingPage: React.FC = () => {
 
   return (
     <div className="min-h-screen">
-      <Navbar />
+     
 
       {/* Hero Section with Slider */}
       <section className="relative bg-gradient-to-br from-emerald-900 via-emerald-800 to-green-900 text-white overflow-hidden">

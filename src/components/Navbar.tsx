@@ -43,11 +43,17 @@ const Navbar: React.FC = () => {
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-8">
+            <Link to="/" className="text-gray-600 hover:text-emerald-600 transition-colors font-medium">
+              Home
+            </Link>
             <Link to="/map" className="text-gray-600 hover:text-emerald-600 transition-colors font-medium">
               Explore Map
             </Link>
             <Link to="/transport" className="text-gray-600 hover:text-emerald-600 transition-colors font-medium">
               Transport
+            </Link>
+            <Link to="/TripPlanner" className="text-gray-600 hover:text-emerald-600 transition-colors font-medium">
+              Trip Planner
             </Link>
             
             {user ? (
@@ -114,7 +120,13 @@ const Navbar: React.FC = () => {
               >
                 Transport
               </Link>
-              
+              <Link 
+                to="/TripPlanner" 
+                className="text-gray-600 hover:text-emerald-600 transition-colors font-medium"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Trip Planner
+              </Link>
               {user ? (
                 <>
                   <Link 
