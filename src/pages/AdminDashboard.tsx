@@ -1,25 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Users, UserCheck, Briefcase, ShoppingCart, TrendingUp, Shield, ShieldCheck } from 'lucide-react';
+import { Users, UserCheck, Briefcase, ShoppingCart, TrendingUp, Shield, ShieldCheck, ListOrdered, Hash } from 'lucide-react';
 
-// Stats data ke liye ek Interface
+// Hamare data ke liye Interfaces
 interface StatsData {
   totalUsers: number;
   touristCount: number;
   guideCount: number;
   sellerCount: number;
 }
-
-// StatCard component ke props ke liye ek Interface
-interface StatCardProps {
-  icon: React.ReactNode;
-  title: string;
-  value: number | undefined;
-  color: string;
-}
-
-// Verifiable user ke liye ek Interface
 interface VerifiableUser {
     _id: string;
     name: string;
@@ -27,13 +17,20 @@ interface VerifiableUser {
     role: 'guide' | 'seller';
     isVerified: boolean;
 }
+interface Transaction {
+    _id: string;
+    from: { name: string };
+    to: { name: string };
+    amount: number;
+    product?: { name: string };
+    transactionHash: string;
+    createdAt: string;
+}
 
 // Helper component for stat cards
-const StatCard: React.FC<StatCardProps> = ({ icon, title, value, color }) => (
+const StatCard: React.FC<{ icon: React.ReactNode; title: string; value: number | undefined; color: string; }> = ({ icon, title, value, color }) => (
   <div className="bg-white rounded-lg shadow p-6 flex items-center space-x-4">
-    <div className={`bg-${color}-100 p-3 rounded-lg`}>
-      {React.cloneElement(icon as React.ReactElement, { className: `h-6 w-6 text-${color}-600` })}
-    </div>
+    <div className={`bg-${color}-100 p-3 rounded-lg`}>{React.cloneElement(icon as React.ReactElement, { className: `h-6 w-6 text-${color}-600` })}</div>
     <div>
       <p className="text-sm text-gray-600">{title}</p>
       <p className="text-2xl font-bold text-gray-900">{value ?? '0'}</p>
@@ -41,70 +38,80 @@ const StatCard: React.FC<StatCardProps> = ({ icon, title, value, color }) => (
   </div>
 );
 
-
 const AdminDashboard: React.FC = () => {
     const { user, token } = useAuth();
     const [stats, setStats] = useState<StatsData | null>(null);
     const [verifiableUsers, setVerifiableUsers] = useState<VerifiableUser[]>([]);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
     const [activeTab, setActiveTab] = useState('analytics');
 
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = useCallback(async () => {
+        if (!token) {
+            console.log("Fetch aborted: No token available.");
+            return;
+        }
         setLoading(true);
+        console.log("Starting to fetch admin data...");
         try {
-            const [statsRes, usersRes] = await Promise.all([
-                fetch('http://localhost:5000/api/analytics/stats', { headers: { 'x-auth-token': token || '' } }),
-                fetch('http://localhost:5000/api/admin/verifiable-users', { headers: { 'x-auth-token': token || '' } })
+            const [statsRes, usersRes, transRes] = await Promise.all([
+                fetch('http://localhost:5000/api/analytics/stats', { headers: { 'x-auth-token': token } }),
+                fetch('http://localhost:5000/api/admin/verifiable-users', { headers: { 'x-auth-token': token } }),
+                fetch('http://localhost:5000/api/admin/transactions', { headers: { 'x-auth-token': token } })
             ]);
+
+            // Transaction response ko check karein
+            if (transRes.ok) {
+                const transData = await transRes.json();
+                console.log("SUCCESS: Fetched transactions:", transData); // <-- JAASOOS 1
+                setTransactions(transData);
+            } else {
+                console.error("ERROR: Failed to fetch transactions. Status:", transRes.status); // <-- JAASOOS 2
+            }
+
             if (statsRes.ok) setStats(await statsRes.json());
             if (usersRes.ok) setVerifiableUsers(await usersRes.json());
+            
         } catch (error) {
-            console.error("Error fetching admin data:", error);
+            console.error("CRITICAL ERROR: Error fetching admin data:", error); // <-- JAASOOS 3
         } finally {
             setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        if (token) {
-            fetchDashboardData();
+            console.log("Finished fetching admin data.");
         }
     }, [token]);
 
-    const handleVerifyUser = async (userId: string) => {
+    useEffect(() => {
+        fetchDashboardData();
+    }, [fetchDashboardData]);
+
+    const handleVerifyUser = useCallback(async (userId: string) => {
+        if (!token) return;
         setMessage('');
         try {
             const response = await fetch(`http://localhost:5000/api/admin/verify/${userId}`, {
                 method: 'PUT',
-                headers: { 'x-auth-token': token || '' }
+                headers: { 'x-auth-token': token }
             });
             if (response.ok) {
                 setMessage('User verified successfully!');
-                fetchDashboardData(); // Refresh the list
+                fetchDashboardData(); // Data ko refresh karein
             } else {
                 setMessage('Verification failed.');
             }
         } catch (error) {
             setMessage('An error occurred.');
         }
-    };
+    }, [token, fetchDashboardData]);
 
-    const pieData = stats ? [
-      { name: 'Tourists', value: stats.touristCount },
-      { name: 'Guides', value: stats.guideCount },
-      { name: 'Sellers', value: stats.sellerCount },
-    ] : [];
-
+    const pieData = stats ? [{ name: 'Tourists', value: stats.touristCount }, { name: 'Guides', value: stats.guideCount }, { name: 'Sellers', value: stats.sellerCount }] : [];
     const COLORS = ['#10B981', '#3B82F6', '#F59E0B'];
 
-    // <<-- YEH NAYA CUSTOM LABEL FUNCTION HAI -->>
     const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
         const RADIAN = Math.PI / 180;
         const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
         const x = cx + radius * Math.cos(-midAngle * RADIAN);
         const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
         return (
             <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
                 {`${name} ${(percent * 100).toFixed(0)}%`}
@@ -112,9 +119,7 @@ const AdminDashboard: React.FC = () => {
         );
     };
 
-    if (loading) {
-      return <div className="flex justify-center items-center h-screen">Loading Admin Panel...</div>;
-    }
+    if (loading) return <div className="flex justify-center items-center h-screen">Loading Admin Panel...</div>;
     
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -127,37 +132,24 @@ const AdminDashboard: React.FC = () => {
                 <nav className="-mb-px flex space-x-8 px-6 border-b">
                     <button onClick={() => setActiveTab('analytics')} className={`py-4 px-1 border-b-2 font-medium ${activeTab === 'analytics' ? 'border-gray-800 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Analytics</button>
                     <button onClick={() => setActiveTab('verification')} className={`py-4 px-1 border-b-2 font-medium ${activeTab === 'verification' ? 'border-gray-800 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Verification</button>
+                    <button onClick={() => setActiveTab('transactions')} className={`py-4 px-1 border-b-2 font-medium ${activeTab === 'transactions' ? 'border-gray-800 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Transactions</button>
                 </nav>
             </div>
-
+            
             {activeTab === 'analytics' && (
               <div className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md-grid-cols-2 lg:grid-cols-4 gap-6">
                   <StatCard icon={<Users />} title="Total Users" value={stats?.totalUsers} color="indigo" />
                   <StatCard icon={<UserCheck />} title="Tourists" value={stats?.touristCount} color="emerald" />
                   <StatCard icon={<Briefcase />} title="Guides" value={stats?.guideCount} color="blue" />
                   <StatCard icon={<ShoppingCart />} title="Sellers" value={stats?.sellerCount} color="amber" />
                 </div>
                 <div className="bg-white rounded-lg shadow p-6">
-                   <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                     <TrendingUp className="mr-2" /> User Distribution
-                   </h2>
+                   <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center"><TrendingUp className="mr-2" /> User Distribution</h2>
                   <ResponsiveContainer width="100%" height={400}>
                      <PieChart>
-                      <Pie 
-                        data={pieData} 
-                        cx="50%" 
-                        cy="50%" 
-                        labelLine={false} 
-                        outerRadius={150} 
-                        fill="#8884d8" 
-                        dataKey="value" 
-                        // <<-- NAYE FUNCTION KO YAHAN USE KIYA GAYA HAI -->>
-                        label={renderCustomizedLabel}
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
+                      <Pie data={pieData} cx="50%" cy="50%" labelLine={false} outerRadius={150} fill="#8884d8" dataKey="value" label={renderCustomizedLabel}>
+                        {pieData.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
                       </Pie>
                       <Tooltip />
                       <Legend />
@@ -169,24 +161,50 @@ const AdminDashboard: React.FC = () => {
 
             {activeTab === 'verification' && (
                 <div className="bg-white p-6 rounded-lg shadow">
-                    <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                        <Users className="mr-2"/> Guide & Seller Verification
-                    </h2>
+                    <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center"><Shield className="mr-2"/> Guide & Seller Verification</h2>
                     {message && <p className={`text-center p-3 rounded-md mb-4 ${message.includes('successfully') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{message}</p>}
                     <div className="space-y-4">
                         {verifiableUsers.length > 0 ? verifiableUsers.map(u => (
-                            <div key={u._id} className="flex items-center justify-between p-4 border rounded-lg">
+                            <div key={u._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
                                 <div>
                                     <p className="font-bold">{u.name} <span className="text-xs font-normal text-gray-500 capitalize">({u.role})</span></p>
                                     <p className="text-sm text-gray-600">{u.email}</p>
                                 </div>
-                                {u.isVerified ? (
-                                    <span className="flex items-center text-green-600 font-semibold"><ShieldCheck className="mr-2"/> Verified</span>
-                                ) : (
-                                    <button onClick={() => handleVerifyUser(u._id)} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Verify</button>
-                                )}
+                                {u.isVerified ? (<span className="flex items-center text-green-600 font-semibold"><ShieldCheck className="mr-2"/> Verified</span>) : (<button onClick={() => handleVerifyUser(u._id)} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Verify</button>)}
                             </div>
                         )) : <p>No users are currently pending verification.</p>}
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'transactions' && (
+                <div className="bg-white p-6 rounded-lg shadow">
+                    <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center"><ListOrdered className="mr-2"/> All Platform Transactions</h2>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction Hash</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">From (Tourist)</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">To (Service Provider)</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item/Service</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {transactions.length > 0 ? transactions.map(tx => (
+                                    <tr key={tx._id}>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={tx.transactionHash}><Hash className="inline-block h-4 w-4 mr-1"/>{tx.transactionHash.substring(0, 12)}...</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.from?.name || 'N/A'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.to?.name || 'N/A'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold">₹{tx.amount}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.product?.name || 'Guide Service'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(tx.createdAt).toLocaleString()}</td>
+                                    </tr>
+                                )) : <tr><td colSpan={6} className="text-center py-10 text-gray-500">No transactions have been made yet.</td></tr>}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}
