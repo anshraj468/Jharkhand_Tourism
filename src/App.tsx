@@ -11,7 +11,7 @@ import LoginPage from './pages/LoginPage';
 import TouristDashboard from './pages/TouristDashboard';
 import GuideDashboard from './pages/GuideDashboard';
 import SellerDashboard from './pages/SellerDashboard';
-import AdminDashboard from './pages/AdminDashboard'; // <<-- AdminDashboard ko import karein
+import AdminDashboard from './pages/AdminDashboard';
 import MapPage from './pages/MapPage';
 import TransportPage from './pages/TransportPage';
 import TripPlanner from './pages/TripPlanner';
@@ -31,7 +31,6 @@ function App() {
               <Route path="/tripplanner" element={<TripPlanner />} />
 
               {/* === PROTECTED DASHBOARD ROUTES === */}
-              
               <Route
                 path="/dashboard/tourist"
                 element={
@@ -56,8 +55,6 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              
-              {/* <<-- YEH NAYA ADMIN ROUTE HAI -->> */}
               <Route
                 path="/dashboard/admin"
                 element={
@@ -78,4 +75,3 @@ function App() {
 }
 
 export default App;
-

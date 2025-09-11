@@ -59,9 +59,18 @@ const LoginPage: React.FC = () => {
     } else {
       // --- Admin ko kahin se bhi login karne ki permission ---
       if (email === 'admin@jharkhand.gov.in' && password === 'admin') {
-        navigate('/dashboard/admin');
-        return;
-      }
+    // --- Admin login properly ---
+    const adminUser = {
+        _id: 'admin123',
+        name: 'Administrator',
+        email,
+        role: 'admin'
+    };
+    localStorage.setItem('token', 'admintoken123'); // dummy token
+    localStorage.setItem('user', JSON.stringify(adminUser));
+    setTimeout(() => navigate('/dashboard/admin'), 100); // navigate after storage
+    return;
+}
 
       const success = await login(email, password, role);
       if (success) {

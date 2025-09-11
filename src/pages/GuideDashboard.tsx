@@ -85,7 +85,7 @@ const GuideDashboard: React.FC = () => {
       {message && <p className={`text-center p-3 rounded-md ${message.includes('successfully') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{message}</p>}
       <form onSubmit={handleProfileUpdate} className="space-y-6">
         <div>
-          <h3 className="text-xl font-bold flex items-center text-gray-800"><img src="https://cdn.iconscout.com/icon/free/png-256/free-upi-2085056-1747949.png" alt="UPI" className="w-6 h-6 mr-2"/>Your UPI ID</h3>
+          <h3 className="text-xl font-bold flex items-center text-gray-800"><img src="https://images.icon-icons.com/2699/PNG/512/upi_logo_icon_170312.png" alt="UPI" className="w-6 h-6 mr-2"/>Your UPI ID</h3>
           <p className="text-gray-500 mt-1 mb-2">Enter your UPI ID to receive payments directly (e.g., yourname@okbank).</p>
           <input type="text" placeholder="yourname@okbank" value={upiId} onChange={e => setUpiId(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"/>
         </div>

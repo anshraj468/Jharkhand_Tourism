@@ -1,7 +1,5 @@
-import React from 'react';
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-// Interfaces for our data structures
 interface Product {
   _id: string;
   name: string;
@@ -32,13 +30,19 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string, role: string) => Promise<boolean>;
-  signup: (name: string, email: string, password: string, mobile: string, role: string, govtId?: string) => Promise<boolean>;
+  signup: (
+    name: string,
+    email: string,
+    password: string,
+    mobile: string,
+    role: string,
+    govtId?: string
+  ) => Promise<boolean>;
   logout: () => void;
   fetchUser: () => void;
 }
 
 const API_URL = 'http://localhost:5000';
-
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const useAuth = () => {
@@ -54,41 +58,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // On mount check localStorage
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
-    if (storedToken) {
-      setToken(storedToken);
-    }
+    const storedUser = localStorage.getItem('user');
+    if (storedToken) setToken(storedToken);
+    if (storedUser) setUser(JSON.parse(storedUser));
     setIsLoading(false);
   }, []);
 
   const fetchUser = async () => {
     const currentToken = token || localStorage.getItem('token');
-    if (currentToken) {
-      try {
-        const res = await fetch(`${API_URL}/api/profile/me`, {
-          headers: { 'x-auth-token': currentToken }
-        });
-        if (res.ok) {
-          const userData = await res.json();
-          setUser(userData);
-          localStorage.setItem('user', JSON.stringify(userData));
-        } else {
-          logout();
-        }
-      } catch (error) {
-        console.error("Failed to fetch user:", error);
+    if (!currentToken) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/profile/me`, {
+        headers: { 'x-auth-token': currentToken },
+      });
+      if (res.ok) {
+        const userData = await res.json();
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+      } else {
         logout();
       }
+    } catch (error) {
+      console.error('Failed to fetch user:', error);
+      logout();
     }
   };
-  
+
   useEffect(() => {
-    if (token) {
-      fetchUser();
-    }
+    if (token) fetchUser();
   }, [token]);
-  
+
   const login = async (email: string, password: string, role: string): Promise<boolean> => {
     setIsLoading(true);
     try {
@@ -97,11 +100,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, role }),
       });
+
       if (!response.ok) {
         setIsLoading(false);
         return false;
       }
+
       const data = await response.json();
+
+      // Admin ke liye special handling
+      if (data.user.role === 'admin') {
+        console.log('✅ Admin logged in:', data.user);
+      }
+
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       setToken(data.token);
@@ -114,21 +125,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return false;
     }
   };
-  
-  const signup = async (name: string, email: string, password: string, mobileNumber: string, role: string, govtId?: string): Promise<boolean> => {
+
+  const signup = async (
+    name: string,
+    email: string,
+    password: string,
+    mobileNumber: string,
+    role: string,
+    govtId?: string
+  ): Promise<boolean> => {
     setIsLoading(true);
     try {
-        const response = await fetch(`${API_URL}/api/auth/signup`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, password, mobileNumber, role, govtId }),
-        });
-        setIsLoading(false);
-        return response.ok;
+      const response = await fetch(`${API_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, mobileNumber, role, govtId }),
+      });
+      setIsLoading(false);
+      return response.ok;
     } catch (error) {
-        console.error('Signup Error:', error);
-        setIsLoading(false);
-        return false;
+      console.error('Signup Error:', error);
+      setIsLoading(false);
+      return false;
     }
   };
 
@@ -141,10 +159,5 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const value = { user, token, isLoading, signup, login, logout, fetchUser };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {!isLoading && children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{!isLoading && children}</AuthContext.Provider>;
 };
-
