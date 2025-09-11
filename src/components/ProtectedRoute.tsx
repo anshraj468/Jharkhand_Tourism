@@ -10,23 +10,31 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
   const { user, isLoading } = useAuth();
 
-  // Jab tak authentication check ho raha hai, kuch na dikhayein
+  // Step 1: Jab tak authentication check ho raha hai, intezaar karein aur spinner dikhayein
+  // Yeh sabse zaroori kadam hai jo aapki login loop wali problem theek karega.
   if (isLoading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>; // Ya ek accha sa spinner dikha sakte hain
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-emerald-600"></div>
+      </div>
+    );
   }
 
-  // Agar user logged-in nahi hai, to use login page par bhejein
+  // Step 2: Jab loading poori ho jaaye, tab check karein ki user logged-in hai ya nahi
   if (!user) {
+    // Agar user nahi hai, to use login page par bhejein
     return <Navigate to="/login" replace />;
   }
 
-  // Agar user logged-in hai, lekin uski role sahi nahi hai, to use uske apne dashboard par bhejein
+  // Step 3: Agar user logged-in hai, lekin uski role page ke liye sahi nahi hai,
+  // to use uske *apne sahi dashboard* par bhejein.
   if (user.role !== requiredRole) {
     return <Navigate to={`/dashboard/${user.role}`} replace />;
   }
 
-  // Agar sab kuch theek hai, to page ko dikhayein
+  // Step 4: Agar sab kuch theek hai, to page ko dikhayein
   return children;
 };
 
 export default ProtectedRoute;
+

@@ -1,33 +1,44 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-// User ke data ka poora structure define karein
+// Interfaces for our data structures
+interface Product {
+  _id: string;
+  name: string;
+  price: number;
+  imageUrl: string;
+}
+
 interface User {
-  _id?: string;
+  _id: string;
   name: string;
   email: string;
+  mobileNumber?: string;
   role: 'tourist' | 'guide' | 'seller' | 'admin';
-  // Naye optional fields jo profile update se aayenge
   isVerified?: boolean;
   qualifications?: string[];
+  pricePerDay?: number;
   bankAccount?: {
     accountHolderName?: string;
     accountNumber?: string;
     ifscCode?: string;
   };
+  upiId?: string;
+  cart?: Product[];
 }
 
-// Context mein kya-kya functions aur data hoga, uska structure
 interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  signup: (name: string, email: string, password: string, role: string, govtId?: string) => Promise<boolean>;
   login: (email: string, password: string, role: string) => Promise<boolean>;
+  signup: (name: string, email: string, password: string, mobile: string, role: string, govtId?: string) => Promise<boolean>;
   logout: () => void;
-  fetchUser: () => void; // User data ko refresh karne ke liye naya function
+  fetchUser: () => void;
 }
 
 const API_URL = 'http://localhost:5000';
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const useAuth = () => {
@@ -40,12 +51,19 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Yeh function server se latest user data laayega
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      setToken(storedToken);
+    }
+    setIsLoading(false);
+  }, []);
+
   const fetchUser = async () => {
-    const currentToken = localStorage.getItem('token');
+    const currentToken = token || localStorage.getItem('token');
     if (currentToken) {
       try {
         const res = await fetch(`${API_URL}/api/profile/me`, {
@@ -54,9 +72,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (res.ok) {
           const userData = await res.json();
           setUser(userData);
-          localStorage.setItem('user', JSON.stringify(userData)); // Local storage ko bhi update karein
+          localStorage.setItem('user', JSON.stringify(userData));
         } else {
-          // Agar token invalid ho gaya hai to logout kar dein
           logout();
         }
       } catch (error) {
@@ -65,16 +82,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     }
   };
-
-  // Jab app load ho, to check karein ki user pehle se logged in hai ya nahi
+  
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (token && storedUser) {
-      setUser(JSON.parse(storedUser));
+    if (token) {
+      fetchUser();
     }
-    setIsLoading(false);
   }, [token]);
-
+  
   const login = async (email: string, password: string, role: string): Promise<boolean> => {
     setIsLoading(true);
     try {
@@ -100,21 +114,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return false;
     }
   };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setToken(null);
-    setUser(null);
-  };
   
-  const signup = async (name: string, email: string, password: string, role: string, govtId?: string): Promise<boolean> => {
+  const signup = async (name: string, email: string, password: string, mobileNumber: string, role: string, govtId?: string): Promise<boolean> => {
     setIsLoading(true);
     try {
         const response = await fetch(`${API_URL}/api/auth/signup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, password, role, govtId }),
+            body: JSON.stringify({ name, email, password, mobileNumber, role, govtId }),
         });
         setIsLoading(false);
         return response.ok;
@@ -125,6 +132,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setToken(null);
+    setUser(null);
+  };
+
   const value = { user, token, isLoading, signup, login, logout, fetchUser };
 
   return (
@@ -133,3 +147,4 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     </AuthContext.Provider>
   );
 };
+
